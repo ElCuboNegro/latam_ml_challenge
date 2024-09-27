@@ -2,6 +2,9 @@ import unittest
 from fastapi.testclient import TestClient
 from challenge import app
 import numpy as np  # Agregar import para np si se necesita en el futuro
+from typing import List, TypedDict
+
+
 
 class TestBatchPipeline(unittest.TestCase):
     def setUp(self):
@@ -18,7 +21,7 @@ class TestBatchPipeline(unittest.TestCase):
             ]
         }
         # Simulación de respuesta del modelo
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))  # Cambia esto a tu modelo si es necesario
+        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"predict": [0]})
