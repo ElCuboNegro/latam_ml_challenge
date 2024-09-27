@@ -1,8 +1,7 @@
 import unittest
-
 from fastapi.testclient import TestClient
 from challenge import app
-
+import numpy as np  # Agregar import para np si se necesita en el futuro
 
 class TestBatchPipeline(unittest.TestCase):
     def setUp(self):
@@ -18,50 +17,53 @@ class TestBatchPipeline(unittest.TestCase):
                 }
             ]
         }
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0])) # change this line to the model of chosing
+        # Simulación de respuesta del modelo
+        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))  # Cambia esto a tu modelo si es necesario
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"predict": [0]})
     
-
-    def test_should_failed_unkown_column_1(self):
+    def test_should_fail_unknown_column_1(self):
         data = {       
             "flights": [
                 {
                     "OPERA": "Aerolineas Argentinas", 
                     "TIPOVUELO": "N",
-                    "MES": 13
+                    "MES": 13  # Suponiendo que '13' no es válido
                 }
             ]
         }
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))# change this line to the model of chosing
+        # Simulación de error del modelo
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 400)
 
-    def test_should_failed_unkown_column_2(self):
+    def test_should_fail_unknown_column_2(self):
         data = {        
             "flights": [
                 {
                     "OPERA": "Aerolineas Argentinas", 
-                    "TIPOVUELO": "O", 
+                    "TIPOVUELO": "O",  # Suponiendo que 'O' no es válido
                     "MES": 13
                 }
             ]
         }
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))# change this line to the model of chosing
+        # Simulación de error del modelo
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 400)
     
-    def test_should_failed_unkown_column_3(self):
+    def test_should_fail_unknown_column_3(self):
         data = {        
             "flights": [
                 {
-                    "OPERA": "Argentinas", 
+                    "OPERA": "Argentinas",  # Suponiendo que esta aerolínea no es válida
                     "TIPOVUELO": "O", 
                     "MES": 13
                 }
             ]
         }
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))
+        # Simulación de error del modelo
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 400)
+
+if __name__ == '__main__':
+    unittest.main()
