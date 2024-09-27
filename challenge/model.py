@@ -1,12 +1,13 @@
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from typing import Tuple, Union, List
 
 class DelayModel:
 
-    def __init__(
-        self
-    ):
+    def __init__(self):
         self._model = None # Model should be saved in this attribute.
 
     def preprocess(
@@ -26,7 +27,7 @@ class DelayModel:
             or
             pd.DataFrame: features.
         """
-        return
+        return data
 
     def fit(
         self,
@@ -55,4 +56,5 @@ class DelayModel:
         Returns:
             (List[int]): predicted targets.
         """
-        return
+        preprocessed_data = self.preprocess(features)
+        return [0] * preprocessed_data.shape[0]  # Dummy prediction
