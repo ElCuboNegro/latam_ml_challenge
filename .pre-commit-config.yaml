@@ -6,16 +6,17 @@ repos:
 
   - repo: local
     hooks:
-      - id: unittest
-        name: "Run api tests"
-        entry: python -m unittest discover -k "api"
-        language: python
-        types: [python]
+      -   id: pytest
+          name: API tests
+          entry: pytest -m "test_should_get_predict"
+          language: system
 
-  - repo: local
-    hooks:
-      - id: unittest
-        name: "Run actual todo"
-        entry: python -m unittest discover -k "test_model_preprocess_for_training"
-        language: python
-        types: [python]
+      -   id: pytest
+          name: 400 Error tests
+          entry: pytest -m "test_should_fail_unknown"
+          language: system
+
+      -   id: pytest
+          name: Tests for data processing
+          entry: pytest -m "test_model_preprocess"
+          language: system
