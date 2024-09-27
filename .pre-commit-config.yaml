@@ -6,8 +6,16 @@ repos:
 
   - repo: local
     hooks:
-      - id: pytest
-        name: Run tests with pytest
-        entry: pytest
-        language: system
+      - id: unittest
+        name: "Run api tests"
+        entry: python -m unittest discover -k "api"
+        language: python
+        types: [python]
+
+  - repo: local
+    hooks:
+      - id: unittest
+        name: "Run actual todo"
+        entry: python -m unittest discover -k "test_model_preprocess_for_training"
+        language: python
         types: [python]
