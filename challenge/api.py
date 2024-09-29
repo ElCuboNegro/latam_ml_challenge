@@ -97,21 +97,6 @@ class FlightsData(BaseModel):
 async def get_health() -> dict:
     return {"status": "OK"}
 
-@app.get(
-    "/report",
-    status_code=200,
-    description="Obtiene el reporte de clasificación",
-    tags=["Model"],
-)
-async def get_report() -> dict:
-    try:
-        loop = asyncio.get_event_loop()
-        report = await loop.run_in_executor(None, model.get_report)
-        return report
-    except Exception as e:
-        logging.error(f"Error al generar el reporte: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor al generar el reporte.")
-
 @app.post("/predict", status_code=200)
 async def post_predict(data: FlightsData) -> dict:
     try:

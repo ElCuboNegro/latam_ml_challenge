@@ -1,19 +1,33 @@
 # syntax=docker/dockerfile:1.2
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /challenge
 
 COPY requirements.txt .
+# Upgrade pip and install NumPy first
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir numpy
 
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY challenge/ .
-
+ENV APP_HOME /root
+WORKDIR $APP_HOME
+COPY /challenge $APP_HOME/challenge
+COPY /tests $APP_HOME/tests
+COPY /data $APP_HOME/data
+    
 EXPOSE 8000
 
 ENV UVICORN_HOST=0.0.0.0
 ENV UVICORN_PORT=8000
 ENV UVICORN_TIMEOUT_KEEP_ALIVE=120
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "120"]
+CMD ["uvicorn", "challenge:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "120"]
