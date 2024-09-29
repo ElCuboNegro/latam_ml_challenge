@@ -2,13 +2,16 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 import xgboost as xgb
 from datetime import datetime
 import joblib
 import os
 from abc import ABC, abstractmethod
-
+import logging
+from typing import Union, Tuple
+from sklearn.exceptions import NotFittedError
+from imblearn.over_sampling import SMOTE
 
 class DataLoader(ABC):
     @abstractmethod
@@ -25,49 +28,43 @@ class CSVDataLoader(DataLoader):
 
 class DateProcessor:
     @staticmethod
-    def get_period_day(date: str) -> str:
+    def get_period_day(date: datetime) -> str:
         """
         Determina el período del día basado en la hora.
 
         Args:
-            date (str): Fecha y hora en formato 'YYYY-MM-DD HH:MM:SS'.
+            date (datetime): Fecha y hora.
 
         Returns:
             str: Período del día ('mañana', 'tarde', 'noche').
         """
-        date_time = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").time()
+        date_time = date.time()
         morning_min = datetime.strptime("05:00", "%H:%M").time()
         morning_max = datetime.strptime("11:59", "%H:%M").time()
         afternoon_min = datetime.strptime("12:00", "%H:%M").time()
         afternoon_max = datetime.strptime("18:59", "%H:%M").time()
-        evening_min = datetime.strptime("19:00", "%H:%M").time()
-        evening_max = datetime.strptime("23:59", "%H:%M").time()
-        night_min = datetime.strptime("00:00", "%H:%M").time()
-        night_max = datetime.strptime("04:59", "%H:%M").time()
+
 
         if morning_min <= date_time <= morning_max:
             return "mañana"
         elif afternoon_min <= date_time <= afternoon_max:
             return "tarde"
-        elif (
-            evening_min <= date_time <= evening_max
-            or night_min <= date_time <= night_max
-        ):
+        else:
             return "noche"
 
     @staticmethod
-    def is_high_season(fecha: str) -> int:
+    def is_high_season(date: datetime) -> int:
         """
         Determina si una fecha está en temporada alta.
 
         Args:
-            fecha (str): Fecha en formato 'YYYY-MM-DD HH:MM:SS'.
+            date (datetime): Fecha y hora.
 
         Returns:
             int: 1 si está en temporada alta, 0 en caso contrario.
         """
-        fecha_año = int(fecha.split("-")[0])
-        fecha_dt = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S")
+        fecha_año = date.year
+        fecha_dt = date
         range1_min = datetime.strptime("15-Dec", "%d-%b").replace(year=fecha_año)
         range1_max = datetime.strptime("31-Dec", "%d-%b").replace(year=fecha_año)
         range2_min = datetime.strptime("1-Jan", "%d-%b").replace(year=fecha_año)
@@ -98,8 +95,8 @@ class DateProcessor:
         Returns:
             float: Diferencia en minutos.
         """
-        fecha_o = datetime.strptime(data["Fecha-O"], "%Y-%m-%d %H:%M:%S")
-        fecha_i = datetime.strptime(data["Fecha-I"], "%Y-%m-%d %H:%M:%S")
+        fecha_o = data["Fecha-O"]
+        fecha_i = data["Fecha-I"]
         min_diff = (fecha_o - fecha_i).total_seconds() / 60
         return min_diff
 
@@ -152,6 +149,9 @@ class ModelPersistence:
 
     def __init__(self):
         self.model_path = "data/xgb_delay_model.pkl"
+        self._model = xgb.XGBClassifier(
+            random_state=1, learning_rate=0.01, scale_pos_weight=5.407
+        )
 
     def save_model(self, model):
         joblib.dump(model, self.model_path)
@@ -196,11 +196,13 @@ class DelayModel:
     """
 
     def __init__(self):
-        self._model = None
+        self._model = xgb.XGBClassifier(
+            random_state=1, learning_rate=0.01, scale_pos_weight=5.407
+        )
         self.report = None
         self.threshold_in_minutes = 15
         self.top_10_features = [
-            "OPERA_Latin American Wings",
+            "OPERA_Latin American Wings", 
             "MES_7",
             "MES_10",
             "OPERA_Grupo LATAM",
@@ -209,116 +211,172 @@ class DelayModel:
             "MES_4",
             "MES_11",
             "OPERA_Sky Airline",
-            "OPERA_Copa Air",
+            "OPERA_Copa Air"
         ]
         self.data_loader = CSVDataLoader()
         self.feature_processor = FeatureProcessor(self.top_10_features)
         self.date_processor = DateProcessor()
+        self.model_persistence = ModelPersistence()
 
-    def preprocess(self, data: pd.DataFrame, target_column: str = None):
-        """
-        Preprocesa los datos de entrada y, opcionalmente, la columna objetivo.
+    def preprocess(
+        self, data: pd.DataFrame, target_column: str = None
+    ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
 
-        Args:
-            data (pd.DataFrame): Datos de entrada.
-            target_column (str, optional): Columna objetivo. Por defecto es None.
+        data["Fecha-I"] = pd.to_datetime(data["Fecha-I"])
+        data["period_day"] = data["Fecha-I"].apply(
+            self.date_processor.get_period_day
+        )
+        data["high_season"] = data["Fecha-I"].apply(
+            self.date_processor.is_high_season
+        )
+        data["Fecha-O"] = pd.to_datetime(data["Fecha-O"])
+        data["min_diff"] = (
+            data["Fecha-O"] - data["Fecha-I"]
+        ).dt.total_seconds() / 60
+        data["delay"] = data["min_diff"].apply(
+            lambda x: 1 if x > self.threshold_in_minutes else 0
+        )
 
-        Returns:
-            pd.DataFrame: Datos preprocesados.
-        """
-        if "Fecha-O" in data.columns and "Fecha-I" in data.columns:
-            # Aplicamos las transformaciones relacionadas con fechas
-            data["period_day"] = data["Fecha-I"].apply(
-                self.date_processor.get_period_day
-            )
-            data["high_season"] = data["Fecha-I"].apply(
-                self.date_processor.is_high_season
-            )
-            data["min_diff"] = data.apply(self.date_processor.get_min_diff, axis=1)
-            # Calculamos la columna 'delay'
-            if target_column == "delay":
-                data["delay"] = np.where(
-                    data["min_diff"] > self.threshold_in_minutes, 0, 1
-                )
+        # Generar variables dummy
+        opera_dummies = pd.get_dummies(data["OPERA"], prefix="OPERA")
+        tipo_vuelo_dummies = pd.get_dummies(data["TIPOVUELO"], prefix="TIPOVUELO")
+        mes_dummies = pd.get_dummies(data["MES"], prefix="MES")
 
-        return self.feature_processor.process_features(data, target_column)
+        # Asegurar que todas las columnas esperadas están presentes
+        expected_columns = self.top_10_features
+
+        for col in expected_columns:
+            if col not in opera_dummies.columns and "OPERA_" in col:
+                opera_dummies[col] = 0
+            if col not in tipo_vuelo_dummies.columns and "TIPOVUELO_" in col:
+                tipo_vuelo_dummies[col] = 0
+            if col not in mes_dummies.columns and "MES_" in col:
+                mes_dummies[col] = 0
+
+        # Combinar las características y ordenarlas según expected_columns
+        features = pd.concat(
+            [
+                mes_dummies[[col for col in expected_columns if col in mes_dummies.columns]],
+                opera_dummies[[col for col in expected_columns if col in opera_dummies.columns]],
+                tipo_vuelo_dummies[[col for col in expected_columns if col in tipo_vuelo_dummies.columns]],
+            ],
+            axis=1,
+        )
+
+        # Ordenar las columnas según expected_columns
+        features = features[expected_columns]
+
+        logging.info(f"Preprocessing completed. Features shape: {features.shape}")
+
+        if target_column:
+            target = data[[target_column]]  # Return target as DataFrame
+            return features, target
+        return features
 
     def fit(self, features: pd.DataFrame, target: pd.DataFrame) -> None:
         """
-        Entrena el modelo con XGBoost, incluyendo el balanceo de clases.
+        Entrena el modelo con las características y el objetivo proporcionados.
+
+        Args:
+            features (pd.DataFrame): Conjunto de características.
+            target (pd.DataFrame): Variable objetivo.
         """
-        model_persistence = ModelPersistence()
+        logging.info("Iniciando el entrenamiento con SMOTE.")
 
-        print("Entrenando el modelo XGBoost...")
+        # Aplicar SMOTE para balancear las clases
+        sm = SMOTE(random_state=42)
+        features_resampled, target_resampled = sm.fit_resample(features, target)
 
-        x_train, x_test, y_train, y_test = train_test_split(
-            features[self.top_10_features], target, test_size=0.33, random_state=42
+        logging.info(f"Tamaño original de features: {features.shape}")
+        logging.info(f"Tamaño después de SMOTE: {features_resampled.shape}")
+
+        # Inicializar el modelo con los hiperparámetros ajustados
+        self._model = xgb.XGBClassifier(
+            random_state=1,
+            learning_rate=0.01,
+            use_label_encoder=False,
+            eval_metric="logloss",
+            max_depth=2,
+            n_estimators=500,
+            subsample=0.5,
+            colsample_bytree=0.6,
+            scale_pos_weight=1  # Ya no es necesario ajustar scale_pos_weight
         )
 
-        n_y0 = len(y_train[y_train == 0])
-        n_y1 = len(y_train[y_train == 1])
-        scale = n_y0 / n_y1  # Cálculo para balancear las clases
-
-        xgb_model = xgb.XGBClassifier(
-            random_state=1, learning_rate=0.01, scale_pos_weight=scale
+        # Entrenar el modelo con los datos balanceados
+        self._model.fit(
+            features_resampled, target_resampled.values.ravel()
         )
-        xgb_model.fit(x_train, y_train)
 
-        self.report = classification_report(
-            y_test, xgb_model.predict(x_test), output_dict=True
-        )
-        model_persistence.save_model(xgb_model)
-        self._model = xgb_model
+        # Guardar el modelo
+        try:
+            self.model_persistence.save_model(self._model)
+            logging.info("Modelo guardado exitosamente.")
+        except Exception as e:
+            logging.error(f"Error al guardar el modelo: {e}")
 
-    def get_confution_matrix(self):
+    def get_confusion_matrix(
+        self, X_test: pd.DataFrame, y_test: pd.DataFrame
+    ):
         """
         Obtiene la matriz de confusión del modelo.
+
+        Args:
+            X_test (pd.DataFrame): Conjunto de características de prueba.
+            y_test (pd.DataFrame): Conjunto de etiquetas de prueba.
 
         Returns:
             np.ndarray: Matriz de confusión.
         """
-        return self.report["confusion_matrix"]
+        y_pred = self._model.predict(X_test)
+        cm = confusion_matrix(y_test, y_pred)
+        return cm
 
     def predict(self, features: pd.DataFrame) -> list:
         """
         Realiza predicciones sobre las características proporcionadas.
-
-        Args:
-            features (pd.DataFrame): Características de entrada.
-
-        Returns:
-            list: Probabilidades de clasificación.
         """
-        model_persistence = ModelPersistence()
-        if self._model is None:
-            self._model = model_persistence.load_model()
-
+        # Asegurarse de que todas las características necesarias estén presentes
         for feature in self.top_10_features:
             if feature not in features.columns:
                 features[feature] = 0
+
+        # Seleccionar las características en el orden correcto
         features = features[self.top_10_features]
+        features = features.astype(np.float64)
 
-        # Features is a DataFrame with multiple rows, each row is a flight (10 cols x n rows)
+        try:
+            # Realizar predicciones (0 o 1)
+            predictions = self._model.predict(features)
+        except NotFittedError:
+            # Si el modelo no está entrenado, lo cargamos
+            self._model = self.model_persistence.load_model()
+            predictions = self._model.predict(features)
+        except FileNotFoundError:
+            # Si no hay modelo guardado, lanzamos una excepción clara
+            raise Exception("El modelo no está entrenado y no se encontró un modelo guardado.")
+        
+        # Convertir el resultado a una lista y retornarlo
+        return predictions.tolist()
 
-        probabilities = []
-
-        # We need to predict each row and return a list of lists
-
-        # as the features are multiple rows, every one for a fligth,
-        # we need to predict each row and return a list of lists
-        # probabilities have 2 values that sum 1 (probabilities), first is for 0 and second for 1
-
-        for index, row in features.iterrows():
-            prob = self._model.predict_proba([row])[0].tolist()
-            probabilities.append(prob)
-
-        return probabilities
-
-    def get_report(self):
+    def get_report(self, X_test: pd.DataFrame, y_test: pd.DataFrame):
         """
         Obtiene el reporte de clasificación del modelo.
+
+        Args:
+            X_test (pd.DataFrame): Conjunto de características de prueba.
+            y_test (pd.DataFrame): Conjunto de etiquetas de prueba.
 
         Returns:
             dict: Reporte de clasificación.
         """
+        y_pred = self._model.predict(X_test)
+        self.report = classification_report(
+            y_test, y_pred, output_dict=True
+        )
         return self.report
+
+def calculate_scale_pos_weight(target):
+    n_y0 = len(target[target == 0])
+    n_y1 = len(target[target == 1])
+    return n_y0 / n_y1

@@ -5,19 +5,22 @@ from pydantic import BaseModel, validator, root_validator, ValidationError
 from typing import List
 import pandas as pd
 from datetime import datetime
-from challenge.model import DelayModel, ModelPersistence, CSVDataLoader
+from challenge.model import DelayModel
 import numpy as np
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
 app = FastAPI()
+model = DelayModel()
 
 
 class Flight(BaseModel):
     OPERA: str
     TIPOVUELO: str
     MES: int
+    Fecha_I: str
+    Fecha_O: str
 
     @validator("MES")
     def mes_must_be_valid(cls, v):
@@ -68,7 +71,7 @@ class Flight(BaseModel):
         return v
 
 
-class FlightData(BaseModel):
+class FlightsData(BaseModel):
     flights: List[Flight]
 
     @root_validator(pre=True)
@@ -80,23 +83,6 @@ class FlightData(BaseModel):
                 detail="Debe proporcionar al menos un vuelo para predecir.",
             )
         return values
-
-
-# Inicializar el modelo
-delay_model = DelayModel()
-model_persistence = ModelPersistence()
-
-
-# Cargar el modelo al iniciar la API
-@app.on_event("startup")
-def load_model_event():
-    try:
-        model_persistence.load_model()
-    except FileNotFoundError:
-        print("Modelo no encontrado. Por favor, entrena el modelo primero.")
-    except Exception as e:
-        print(f"Error al cargar el modelo: {e}")
-
 
 @app.get(
     "/health",
@@ -115,41 +101,15 @@ async def get_health() -> dict:
     tags=["Model"],
 )
 async def get_report() -> dict:
-    return delay_model.get_report()
+    return model.get_report()
 
-
-@app.post(
-    "/tune",
-    status_code=200,
-    description="Tune model, puede tardar mucho tiempo",
-    tags=["Model"],
-)
-async def fit_model() -> dict:
-    data_loader = CSVDataLoader()
-    data = data_loader.load_data("data/data.csv")
-    features, target = delay_model.preprocess(data, target_column="delay")
-    delay_model.fit(features, target)
-    model_persistence.save_model(delay_model)
-    return delay_model.get_report()
-
-
-@app.post("/predict")
-async def post_predict(flight_data: FlightData) -> dict:
-    predictions = []
-    for flight in flight_data.flights:
-        try:
-            logging.debug(f"Procesando vuelo: {flight}")
-            flight_dict = flight.dict()
-            flight_df = pd.DataFrame([flight_dict])
-            features = delay_model.preprocess(flight_df, target_column=None)
-            logging.debug(f"Características preprocesadas: {features}")
-            prediction = delay_model.predict(features)
-            logging.debug(f"Predicción cruda: {prediction}")
-            prediction_value = float(prediction[0][0][0])
-            predictions.append(1 if prediction_value > 0.5 else 0)
-            logging.debug(f"Predicción final: {predictions[-1]}")
-        except Exception as e:
-            logging.error(f"Error en la predicción: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error en la predicción: {e}")
-
-    return {"predict": predictions}
+@app.post("/predict", status_code=200)
+async def post_predict(data: FlightsData) -> dict:
+    try:
+        df = pd.DataFrame([flight.dict() for flight in data.flights])
+        df.rename(columns={'Fecha_I': 'Fecha-I', 'Fecha_O': 'Fecha-O'}, inplace=True)
+        features = model.preprocess(df)
+        predictions = model.predict(features)
+        return {"predict": predictions}
+    except Exception as e:
+        return {"error": "An error occurred during prediction.", "detail": str(e)}
