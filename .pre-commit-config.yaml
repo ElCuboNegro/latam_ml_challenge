@@ -1,0 +1,23 @@
+repos:
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  - repo: local
+    hooks:
+      -   id: pytest
+          name: API tests
+          entry: pytest -m "api"
+          language: python
+          types: [python]
+
+      -   id: pytest
+          name: 400 Error tests
+          entry: pytest -m "test_should_fail_unknown"
+          language: system
+
+      -   id: pytest
+          name: Tests for data processing
+          entry: pytest -m "test_model_preprocess"
+          language: system

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="80.278" timestamp="2024-09-29T12:06:06.344673" hostname="Kaos"><testcase classname="tests.model.test_model.TestModel" name="test_model_data_size" time="13.077" /><testcase classname="tests.model.test_model.TestModel" name="test_model_fit" time="13.272"><failure message="AssertionError: assert 0.005602923264311815 &gt; 0.6">self = &lt;tests.model.test_model.TestModel testMethod=test_model_fit&gt;
+
+    @mark.model
+    def test_model_fit(self):
+        features, target = self.model.preprocess(data=self.data, target_column="delay")
+    
+        _, features_validation, _, target_validation = train_test_split(
+            features, target, test_size=0.33, random_state=42
+        )
+    
+        self.model.fit(features=features, target=target)
+    
+        predicted_target = self.model._model.predict(features_validation)
+    
+        report = classification_report(
+            target_validation, predicted_target, output_dict=True
+        )
+    
+&gt;       assert report["0"]["recall"] &gt; 0.60
+E       AssertionError: assert 0.005602923264311815 &gt; 0.6
+
+tests/model/test_model.py:76: AssertionError</failure></testcase><testcase classname="tests.model.test_model.TestModel" name="test_model_predict" time="12.774" /><testcase classname="tests.model.test_model.TestModel" name="test_model_preprocess_for_serving" time="12.796" /><testcase classname="tests.model.test_model.TestModel" name="test_model_preprocess_for_training" time="12.475" /></testsuite></testsuites>

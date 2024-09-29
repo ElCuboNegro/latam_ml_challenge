@@ -6,3 +6,5 @@ pandas~=1.3.5
 scikit-learn~=1.3.0
 starlette
 anyio~=3.6.2
+xgboost
+imbalanced-learn
