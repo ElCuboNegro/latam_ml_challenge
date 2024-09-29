@@ -10,17 +10,17 @@ from pytest import mark
 class TestModel(unittest.TestCase):
 
     FEATURES_COLS = [
-            "OPERA_Latin American Wings", 
-            "MES_7",
-            "MES_10",
-            "OPERA_Grupo LATAM",
-            "MES_12",
-            "TIPOVUELO_I",
-            "MES_4",
-            "MES_11",
-            "OPERA_Sky Airline",
-            "OPERA_Copa Air"
-        ]
+        "OPERA_Latin American Wings",
+        "MES_7",
+        "MES_10",
+        "OPERA_Grupo LATAM",
+        "MES_12",
+        "TIPOVUELO_I",
+        "MES_4",
+        "MES_11",
+        "OPERA_Sky Airline",
+        "OPERA_Copa Air",
+    ]
 
     TARGET_COL = ["delay"]
 
@@ -87,7 +87,6 @@ class TestModel(unittest.TestCase):
 
         # Realizar predicciones
         predicted_targets = self.model.predict(features=features)
-
 
         assert isinstance(predicted_targets, list)
         # assert len(predicted_targets) == features.shape[0]

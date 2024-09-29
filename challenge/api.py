@@ -16,10 +16,8 @@ app = FastAPI()
 model = DelayModel()
 
 # Caché para almacenar el reporte
-report_cache = {
-    "data": None,
-    "last_generated": None
-}
+report_cache = {"data": None, "last_generated": None}
+
 
 class Flight(BaseModel):
     OPERA: str
@@ -88,6 +86,7 @@ class FlightsData(BaseModel):
             )
         return values
 
+
 @app.get(
     "/health",
     status_code=200,
@@ -96,6 +95,7 @@ class FlightsData(BaseModel):
 )
 async def get_health() -> dict:
     return {"status": "OK"}
+
 
 @app.post("/predict", status_code=200)
 async def post_predict(data: FlightsData) -> dict:

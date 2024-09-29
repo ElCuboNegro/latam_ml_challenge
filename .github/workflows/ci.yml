@@ -1,0 +1,39 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run Model Tests
+        run: |
+          pytest --cov=challenge --cov-report=term --cov-report=html:reports/html --cov-report=xml:reports/coverage.xml tests/model/test_model.py
+
+      - name: Run API Tests
+        run: |
+          pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
+
+      - name: Run Stress Tests
+        if: github.ref == 'refs/heads/main'  # Solo se ejecuta en la rama main
+        run: |
+          pytest tests/stress/test_stress.py
