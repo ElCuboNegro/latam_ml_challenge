@@ -1,9 +1,9 @@
 name: Continuous Integration
-
 on:
   push:
     branches:
       - develop
+      - main
 
 jobs:
   test_development:
@@ -30,3 +30,8 @@ jobs:
       - name: Run API Tests
         run: |
           pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
+
+      - name: Run Stress Tests
+        if: github.ref == 'refs/heads/main'  # Solo se ejecuta en la rama main
+        run: |
+          pytest tests/stress/test_stress.py
