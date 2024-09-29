@@ -1,15 +1,12 @@
 name: CI Pipeline
 
 on:
-  push:
+  commit:
     branches:
       - main
       - develop
 
 jobs:
-
-
-
   build-test-deploy:
     runs-on: ubuntu-latest
     steps: 
@@ -47,3 +44,14 @@ jobs:
       - name: Run API Tests
         run: |
           pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
+
+      # Paso 7: Construir imagen Docker y subir a GCP Artifact Registry
+      - name: Build and Push Docker Image
+        if: success()  # Solo se ejecuta si todos los pasos anteriores son exitosos
+        run: |
+          echo ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }} | base64 --decode > gcp-key.json
+          PROJECT_ID=$(echo ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }} | jq -r .project_id)
+          gcloud auth activate-service-account --key-file gcp-key.json
+          gcloud auth configure-docker
+          docker build -t gcr.io/$PROJECT_ID/latam_develop:latest .
+          docker push gcr.io/$PROJECT_ID/latam_develop:latest
