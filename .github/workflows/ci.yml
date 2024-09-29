@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - feature/*
 
 jobs:
 
@@ -51,7 +52,7 @@ jobs:
         if: success()  # Solo se ejecuta si todos los pasos anteriores son exitosos
         run: |
           echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" > gcp-key.json  # Guardar el secreto directamente
-          PROJECT_ID=$(echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | jq -r .project_id)
+          PROJECT_ID=$(jq -r .project_id gcp-key.json)  # Extraer project_id del archivo JSON
           gcloud auth activate-service-account --key-file gcp-key.json
           gcloud auth configure-docker
           docker build -t gcr.io/$PROJECT_ID/my-image:latest .
