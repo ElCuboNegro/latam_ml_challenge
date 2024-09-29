@@ -10,13 +10,10 @@ class TestBatchPipeline(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @mark.api
     def test_should_get_predict(self):
         data = {
             "flights": [{"OPERA": "Aerolineas Argentinas", "TIPOVUELO": "N", "MES": 3}]
         }
-        # Simulación de respuesta del modelo
-        # when("xgboost.XGBClassifier").predict(ANY).thenReturn(np.array([0]))
         response = self.client.post("/predict", json=data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"predict": [0]})
