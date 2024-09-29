@@ -47,13 +47,25 @@ jobs:
         run: |
           pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
 
-      # Paso 7: Construir imagen Docker y subir a GCP Artifact Registry
-      - name: Build and Push Docker Image
-        if: success()  # Solo se ejecuta si todos los pasos anteriores son exitosos
+     # Paso 6: Configurar Google Cloud SDK
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          export_default_credentials: true
+      
+      # Paso 7: Configurar Docker para Artifact Registry
+      - name: Configure Docker to use Artifact Registry
         run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" > gcp-key.json  # Guardar el secreto directamente
-          PROJECT_ID=$(jq -r .project_id gcp-key.json)  # Extraer project_id del archivo JSON
-          gcloud auth activate-service-account --key-file gcp-key.json
-          gcloud auth configure-docker
-          docker build -t gcr.io/$PROJECT_ID/my-image:latest .
-          docker push gcr.io/$PROJECT_ID/my-image:latest
+          gcloud auth configure-docker us-central1-docker.pkg.dev
+      # Paso 8: Construir la imagen Docker
+      - name: Build Docker image
+        run: |
+          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-ml-challenge-repo/latam-ml-challenge:${{ github.sha }} .
+
+      # Paso 9: Push de la imagen a Artifact Registry
+      - name: Push Docker image
+        run: |
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-ml-challenge-repo/latam-ml-challenge:${{ github.sha }}
+
