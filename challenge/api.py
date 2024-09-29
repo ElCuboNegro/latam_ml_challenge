@@ -8,19 +8,23 @@ from datetime import datetime
 from challenge.model import DelayModel
 import numpy as np
 import logging
+import asyncio
 
 logging.basicConfig(level=logging.DEBUG)
 
 app = FastAPI()
 model = DelayModel()
 
+# Caché para almacenar el reporte
+report_cache = {
+    "data": None,
+    "last_generated": None
+}
 
 class Flight(BaseModel):
     OPERA: str
     TIPOVUELO: str
     MES: int
-    Fecha_I: str
-    Fecha_O: str
 
     @validator("MES")
     def mes_must_be_valid(cls, v):
@@ -93,7 +97,6 @@ class FlightsData(BaseModel):
 async def get_health() -> dict:
     return {"status": "OK"}
 
-
 @app.get(
     "/report",
     status_code=200,
@@ -101,13 +104,18 @@ async def get_health() -> dict:
     tags=["Model"],
 )
 async def get_report() -> dict:
-    return model.get_report()
+    try:
+        loop = asyncio.get_event_loop()
+        report = await loop.run_in_executor(None, model.get_report)
+        return report
+    except Exception as e:
+        logging.error(f"Error al generar el reporte: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor al generar el reporte.")
 
 @app.post("/predict", status_code=200)
 async def post_predict(data: FlightsData) -> dict:
     try:
         df = pd.DataFrame([flight.dict() for flight in data.flights])
-        df.rename(columns={'Fecha_I': 'Fecha-I', 'Fecha_O': 'Fecha-O'}, inplace=True)
         features = model.preprocess(df)
         predictions = model.predict(features)
         return {"predict": predictions}

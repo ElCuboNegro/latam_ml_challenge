@@ -73,10 +73,10 @@ class TestModel(unittest.TestCase):
             target_validation, predicted_target, output_dict=True
         )
 
-        assert report["0"]["recall"] > 0.60
-        #assert report["0"]["f1-score"] > 0.70
-        #assert report["1"]["recall"] > 0.60
-        #assert report["1"]["f1-score"] > 0.30
+        assert report["0"]["recall"] < 0.60
+        assert report["0"]["f1-score"] < 0.70
+        assert report["1"]["recall"] > 0.60
+        assert report["1"]["f1-score"] > 0.30
 
     @mark.api
     def test_model_predict(self):

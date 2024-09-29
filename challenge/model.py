@@ -221,21 +221,21 @@ class DelayModel:
     def preprocess(
         self, data: pd.DataFrame, target_column: str = None
     ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
-
-        data["Fecha-I"] = pd.to_datetime(data["Fecha-I"])
-        data["period_day"] = data["Fecha-I"].apply(
-            self.date_processor.get_period_day
-        )
-        data["high_season"] = data["Fecha-I"].apply(
-            self.date_processor.is_high_season
-        )
-        data["Fecha-O"] = pd.to_datetime(data["Fecha-O"])
-        data["min_diff"] = (
-            data["Fecha-O"] - data["Fecha-I"]
-        ).dt.total_seconds() / 60
-        data["delay"] = data["min_diff"].apply(
-            lambda x: 1 if x > self.threshold_in_minutes else 0
-        )
+        if target_column == 'delay': 
+            data["Fecha-I"] = pd.to_datetime(data["Fecha-I"])
+            data["period_day"] = data["Fecha-I"].apply(
+                self.date_processor.get_period_day
+            )
+            data["high_season"] = data["Fecha-I"].apply(
+                self.date_processor.is_high_season
+            )
+            data["Fecha-O"] = pd.to_datetime(data["Fecha-O"])
+            data["min_diff"] = (
+                data["Fecha-O"] - data["Fecha-I"]
+            ).dt.total_seconds() / 60
+            data["delay"] = data["min_diff"].apply(
+                lambda x: 1 if x > self.threshold_in_minutes else 0
+            )
 
         # Generar variables dummy
         opera_dummies = pd.get_dummies(data["OPERA"], prefix="OPERA")
