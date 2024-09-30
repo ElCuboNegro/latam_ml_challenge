@@ -14,6 +14,7 @@ COPY requirements.txt .
 
 # Actualizar pip
 RUN pip install --upgrade pip
+RUN pip install pandas
 
 # Instalar dependencias restantes
 RUN pip install --no-cache-dir -r requirements.txt
