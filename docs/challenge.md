@@ -244,6 +244,31 @@ N --> M
 - Los test no son suficientes para garantizar la calidad del modelo, se debe agregar mas casos que permitan evaluar las respuestas del modelo ante diferentes escenarios.
 - El test de stress no es suficiente para garantizar que el modelo funcione correctamente bajo condiciones de alta carga.
 - Es posible hacer deploy del modelo a GCP sin necesidad de usar github actions.
+- La API tiene un error de diseño en el endpoint `/predict`, ya que la respuesta es posicional, al enviarse un request de muchos vuelos validos, si uno solo es invalido, el request falla con un error 400, y al esperar una respuesta
+
+```json
+{
+	"predict": [
+		0,
+		1
+	]
+}
+```
+
+dicha respuesta va a ser unicamente posicional, lo que provoca que, en el momento de hacer un request de muchos datos validos con un dato invalido, no se pueda representar facilmente el error 400, ya que si no se representa, simplemente no se concatenaria el error, haciendo imposible identificar cual es el vuelo al que dicho error se le asocia.
+
+para esto, propongo enviar junto a la prediccion, el id del vuelo, y asi poder identificar cual es el vuelo que esta provocando dicho error.
+
+```json
+{
+	"predict": [
+		<flight_id>:0,
+		<flight_id>:1,
+    <flight_id>:-1 -for 400-like-requests-
+	]
+}
+```
+
 
 ---
 
