@@ -83,7 +83,6 @@ jobs:
           echo "Running stress tests against $SERVICE_URL"
           locust -f tests/stress/api_stress.py --headless -u 100 -r 10 -t 10m --host=$SERVICE_URL --exit-code-on-error
 
-
       # Paso 9.1: Guardar reportes de stress tests
       - name: Upload Stress Test Reports
         if: always()
