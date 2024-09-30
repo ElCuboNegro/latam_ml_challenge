@@ -1,5 +1,5 @@
 # Proyecto Notebook
-
+[![CI Pipeline](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml)
 ## Tabla de Contenidos
 
 1. [Introducción](#introducción)

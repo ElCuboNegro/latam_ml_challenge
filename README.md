@@ -1,6 +1,10 @@
 # Software Engineer (ML & LLMs) Challenge
+Development and tests: [![CI Pipeline](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml)
+Deployment:[![.github/workflows/cd.yml](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/cd.yml)
 
 ## Overview
+
+[![CI Pipeline](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/ElCuboNegro/latam_ml_challenge/actions/workflows/ci.yml)
 
 Welcome to the **Software Engineer (ML & LLMs)** Application Challenge. In this, you will have the opportunity to get closer to a part of the reality of the role, and demonstrate your skills and knowledge in machine learning and cloud.
 
