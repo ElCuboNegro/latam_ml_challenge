@@ -74,12 +74,10 @@ Para ambos modelos (XGBoost y Regresión Logística con balanceo) los resultados
 
 ### Clasificación
 
-- El dataset está muy desbalanceado. Por ello, el parámetro `scale_pos_weight` se calcula como la raíz cuadrada de la proporción de muestras de la clase mayoritaria respecto a la clase minoritaria. Esto limita el efecto de una multiplicación excesiva de ejemplos positivos por pesos demasiado altos.
-  
 - Se ha creado un script para buscar los mejores hiperparámetros del modelo XGBoost en `challenge/model.py - model.tune_hyperparameters`. Los resultados obtenidos son:
 
   - **Mejores parámetros:** `{'colsample_bytree': 0.6, 'learning_rate': 0.01, 'max_depth': 2, 'n_estimators': 500, 'subsample': 0.5}`
-  - **Mejor puntuación F1:** 0.8976576077326752
+  - **Mejor puntuación F1 clase 0:** 0.8976576077326752
 
 - Uno de los test unitarios no tenia sentido, ya que evaluaba que el recall sea menor a 0.60, cuando en realidad se buscaba que fuera mayor. Generalmente en problemas de clasificacion, buscamos que el recall y el F1 Score sean lo mas altas posibles, mientras que el test reflejaba que se buscaba un rendimiento minimo.
 
@@ -94,4 +92,53 @@ Para ambos modelos (XGBoost y Regresión Logística con balanceo) los resultados
 
 ## Despliegue
 
-- *(No se proporcionaron notas específicas sobre despliegue. Asegúrese de agregar información relevante según el proyecto.)*
+### Descripción de Pasos en CI
+
+- Activación del Workflow:
+  - Se activa en cada push a las ramas main, develop y cualquier rama que coincida con feature/*.
+
+- Pasos del Job build-and-test:
+  - Paso 1: Checkout del repositorio
+    - Se utiliza actions/checkout@v3 para obtener el código fuente del repositorio.
+  - Paso 2: Cache de dependencias pip
+    - Se implementa una caché para las dependencias instaladas mediante pip, optimizando el tiempo de instalación en ejecuciones futuras.
+  - Paso 3: Configurar Python 3.9
+    - Se establece el entorno de Python necesario para el proyecto.
+  - Paso 4: Instalar dependencias de pruebas
+    - Se instalan las dependencias necesarias tanto para la aplicación como para las pruebas.
+  - Paso 5: Ejecutar pruebas del modelo
+    - Se ejecutan los tests unitarios y de integración relacionados con el modelo, generando reportes de cobertura.
+  - Paso 6: Ejecutar pruebas de la API
+    - Se ejecutan los tests de la API, incluyendo reportes de cobertura y resultados en formato XML para integraciones adicionales si fuera necesario.
+  - Paso 7: Subir reportes de pruebas (opcional)
+    - Se suben los reportes generados como artefactos del workflow, permitiendo su análisis posterior.
+
+### Descripción de Pasos en CD
+#### Activación del Workflow:
+CD para PRs: Se activa cuando se crea o actualiza una Pull Request hacia la rama main.
+CD para Producción: Se activa en cada push a la rama main, es decir, cuando una PR es mergeada exitosamente.
+#### Pasos Comunes en CD:
+Checkout del repositorio
+Configuración de Google Cloud SDK
+  - Utiliza google-github-actions/setup-gcloud@v1 para configurar las credenciales y el proyecto de GCP.
+  - Configuración de Docker para Artifact Registry
+    - Prepara Docker para autenticarse y subir imágenes al registro de contenedores de Google.
+
+#### Construcción y Push de la imagen Docker
+  - Construye la imagen Docker de la aplicación y la sube al Artifact Registry de GCP.
+
+#### Pasos Específicos en CD para PRs en main:
+Despliegue en Cloud Run (Ambiente de Pruebas)
+  - Despliega la aplicación en un servicio de Cloud Run nombrado según el número de la PR (latam-ml-challenge-pr-<número_de_pr>).
+  - Obtención de la URL del servicio desplegado
+    - Almacena la URL del servicio para ser utilizada en las pruebas de estrés.
+  - Instalación de dependencias para Stress Testing
+    - Instala locust y otras dependencias necesarias para ejecutar las pruebas.
+  - Ejecución de Stress Tests
+    - Se ejecutan pruebas de estrés utilizando locust, simulando múltiples usuarios y peticiones para verificar el desempeño de la aplicación bajo carga.
+  - Destrucción del servicio de prueba
+    - Independientemente del resultado de las pruebas, se elimina el servicio desplegado para liberar recursos.
+
+#### Pasos Específicos en CD para Producción:
+  - Despliegue en Cloud Run (Producción)
+    - Despliega la aplicación en el servicio de producción (latam-ml-challenge), haciéndola disponible para los usuarios finales.

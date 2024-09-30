@@ -51,24 +51,43 @@ jobs:
             --platform managed \
             --allow-unauthenticated
 
-      # Paso 7: Ejecutar Stress Tests
+      # Paso 7: Obtener la URL del servicio desplegado
+      - name: Get Service URL
+        id: get-url
+        run: |
+          REGION=us-central1
+          SERVICE=latam-ml-challenge-pr-${{ github.event.pull_request.number }}
+          SERVICE_URL=$(gcloud run services describe $SERVICE --region $REGION --format 'value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+      # Paso 8: Instalar dependencias para stress testing
       - name: Install dependencies for stress testing
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
+          pip install locust
 
+      # Paso 9: Ejecutar Stress Tests
       - name: Run Stress Tests
         env:
-          SERVICE_URL: $(gcloud run services describe latam-ml-challenge-pr-${{ github.event.pull_request.number }} --region us-central1 --format 'value(status.url)')
+          SERVICE_URL: ${{ env.SERVICE_URL }}
         run: |
           echo "Running stress tests against $SERVICE_URL"
-          pytest tests/stress/test_stress.py --url $SERVICE_URL
+          locust -f tests/stress/api_stress.py --headless -u 100 -r 10 -t 10m --host=$SERVICE_URL --exit-code-on-error
 
-      # Paso 8: Destruir el servicio de prueba
+      # Paso 10: Destruir el servicio de prueba
       - name: Destroy Test Service
         if: always()
         run: |
           REGION=us-central1
           SERVICE=latam-ml-challenge-pr-${{ github.event.pull_request.number }}
           gcloud run services delete $SERVICE --region $REGION --platform managed --quiet
+
+      # Paso 9.1: Guardar reportes de stress tests
+      - name: Upload Stress Test Reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: stress-test-reports
+          path: reports/
