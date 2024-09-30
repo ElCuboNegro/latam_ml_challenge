@@ -8,15 +8,14 @@ on:
       - feature/*
 
 jobs:
-
-  build-test-deploy:
+  build-and-test:
     runs-on: ubuntu-latest
-    steps: 
-      # step 1: Checkout
+    steps:
+      # Paso 1: Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # step 2: Cache pip
+      # Paso 2: Cache pip
       - name: Cache pip
         uses: actions/cache@v3
         with:
@@ -25,7 +24,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Step 3: Python
+      # Paso 3: Configurar Python
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
@@ -47,25 +46,10 @@ jobs:
         run: |
           pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
 
-     # Paso 6: Configurar Google Cloud SDK
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+      # Paso 6: Subir reportes de pruebas (opcional)
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-          export_default_credentials: true
-      
-      # Paso 7: Configurar Docker para Artifact Registry
-      - name: Configure Docker to use Artifact Registry
-        run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev
-      # Paso 8: Construir la imagen Docker
-      - name: Build Docker image
-        run: |
-          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-ml-challenge-repo/latam-ml-challenge:${{ github.sha }} .
-
-      # Paso 9: Push de la imagen a Artifact Registry
-      - name: Push Docker image
-        run: |
-          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-ml-challenge-repo/latam-ml-challenge:${{ github.sha }}
-
+          name: test-reports
+          path: reports/
