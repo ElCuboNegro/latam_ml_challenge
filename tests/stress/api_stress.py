@@ -1,6 +1,7 @@
 from locust import HttpUser, task, between
 from locust.env import Environment
 
+
 class StressUser(HttpUser):
     wait_time = between(1, 3)  # Tiempo de espera entre tareas
 
@@ -12,7 +13,9 @@ class StressUser(HttpUser):
             # Puedes agregar más casos si es necesario
         ]
         for payload in payloads:
-            with self.client.post("/predict", json={"flights": [payload]}, catch_response=True) as response:
+            with self.client.post(
+                "/predict", json={"flights": [payload]}, catch_response=True
+            ) as response:
                 if response.status_code != 200:
                     response.failure(f"Fallo en la petición con payload: {payload}")
                 else:
