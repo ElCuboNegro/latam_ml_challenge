@@ -1,55 +1,137 @@
-name: CI Pipeline
-
 on:
   push:
     branches:
       - main
       - develop
       - feature/*
+  pull_request:
+    branches: [main]
 
 jobs:
-  build-and-test:
+  check-changes:
+    name: Detectar Cambios en Código y Workflow
     runs-on: ubuntu-latest
     steps:
-      # Paso 1: Checkout
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # Paso 2: Cache pip
-      - name: Cache pip
-        uses: actions/cache@v3
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          fetch-depth: 2  # Necesario para 'git diff' comparar con el commit anterior
 
-      # Paso 3: Configurar Python
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      # Paso 4: Instalar dependencias de pruebas
-      - name: Install dependencies for testing
+      # Paso 1: Calcular hash de archivos de código
+      - name: Calcular hash de archivos de código
         run: |
-          python -m pip install --upgrade pip
+          git ls-tree -r HEAD -- '*.py' ':!Dockerfile' ':!**/Dockerfile' | git hash-object --stdin > code_hash_current
+          echo "CODE_FILES_HASH=$(cat code_hash_current)" >> $GITHUB_ENV
+
+      # Paso 2: Cachear hash de código
+      - name: Cachear hash de código
+        uses: actions/cache@v2
+        with:
+          path: ./code_hash_code
+          key: code-hash-${{ env.CODE_FILES_HASH }}
+
+      # Paso 3: Verificar cambios en archivos de código
+      - name: Verificar cambios en archivos de código
+        run: |
+          if [ -f ./code_hash_code ]; then
+            PREV_CODE_HASH=$(cat ./code_hash_code)
+            if [ "$PREV_CODE_HASH" == "$CODE_FILES_HASH" ]; then
+              echo "No hay cambios en archivos de código."
+              echo "false" > code_changed.txt
+            else
+              echo "Cambios detectados en archivos de código."
+              echo "$CODE_FILES_HASH" > ./code_hash_code
+              echo "true" > code_changed.txt
+            fi
+          else
+            echo "No se encontró hash de código previo. Ejecutando build."
+            echo "$CODE_FILES_HASH" > ./code_hash_code
+            echo "true" > code_changed.txt
+          fi
+
+      # Paso 4: Verificar cambios en el workflow
+      - name: Verificar cambios en el workflow
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -qE '.github/workflows/.*\.yml'; then
+            echo "true" > workflow_changed.txt
+          else
+            echo "false" > workflow_changed.txt
+          fi
+
+      # Paso 5: Subir archivos de cambios como artefactos
+      - name: Subir archivos de cambios
+        uses: actions/upload-artifact@v3
+        with:
+          name: change-flags
+          path: |
+            code_changed.txt
+            workflow_changed.txt
+
+  environment-setup_and_test:
+    name: Configuración del Entorno y Ejecutar Tests
+    runs-on: ubuntu-latest
+    needs: check-changes
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # Descargar los artefactos de la tarea anterior
+      - name: Descargar archivos de cambios
+        uses: actions/download-artifact@v3
+        with:
+          name: change-flags
+
+      # Leer las variables desde los archivos
+      - name: Leer variables de cambios
+        run: |
+          CODE_CHANGED=$(cat code_changed.txt)
+          WORKFLOW_CHANGED=$(cat workflow_changed.txt)
+          echo "CODE_CHANGED=$CODE_CHANGED" >> $GITHUB_ENV
+          echo "WORKFLOW_CHANGED=$WORKFLOW_CHANGED" >> $GITHUB_ENV
+
+      # Verificación de cambios en el código
+      - name: Verificar si hubo cambios en el código
+        if: env.CODE_CHANGED == 'true'
+        run: echo "Cambios detectados. Se procederá con la configuración del entorno y ejecución de tests."
+
+      # Condicional: Solo se ejecutan estos pasos si hubo cambios en el código
+      - name: Cachear dependencias
+        if: env.CODE_CHANGED == 'true'
+        uses: actions/cache@v2
+        with:
+          path: ./.venv/
+          key: ${{ runner.os }}-venv-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
+
+      - name: Instalar dependencias y activar entorno
+        if: env.CODE_CHANGED == 'true'
+        run: |
+          if [ ! -d ./.venv ]; then
+            python -m venv ./.venv
+          fi
+          . ./.venv/bin/activate
           pip install -r requirements.txt
           pip install -r requirements-test.txt
 
-      # Paso 5: Ejecutar tests
       - name: Run Model Tests
+        if: env.CODE_CHANGED == 'true'
         run: |
           pytest --cov=challenge --cov-report=term --cov-report=html:reports/html --cov-report=xml:reports/coverage.xml tests/model/test_model.py
 
       - name: Run API Tests
+        if: env.CODE_CHANGED == 'true'
         run: |
           pytest --cov-config=.coveragerc --cov-report term --cov-report html:reports/html --cov-report xml:reports/coverage.xml --junitxml=reports/junit.xml --cov=challenge tests/api/test_api.py
 
-      # Paso 6: Subir reportes de pruebas (opcional)
       - name: Upload Test Reports
-        if: always()
+        if: always() && env.CODE_CHANGED == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: test-reports
           path: reports/
+
+      # Paso que se ejecuta si no hay cambios
+      - name: Imprimir mensaje si no hay cambios
+        if: env.CODE_CHANGED != 'true'
+        run: echo "No hay cambios en el código. No se ejecutarán tests."
