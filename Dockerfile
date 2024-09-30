@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.2
-FROM amancevice/pandas:1.3.5-python3.11-slim
+FROM amancevice/pandas:1.3.5
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -14,6 +14,7 @@ COPY requirements.txt .
 
 # Actualizar pip
 RUN pip install --upgrade pip
+RUN pip install pandas
 
 # Instalar dependencias restantes
 RUN pip install --no-cache-dir -r requirements.txt
