@@ -239,9 +239,11 @@ N --> M
 
 ---
 
-## Conclusión
+## Notas finales
 
-El proyecto integra el desarrollo de modelos predictivos, una API robusta y pipelines automatizados de CI/CD. Aunque se identificaron áreas de mejora en la arquitectura, las soluciones implementadas sientan las bases para un sistema escalable y mantenible.
+- Los test no son suficientes para garantizar la calidad del modelo, se debe agregar mas casos que permitan evaluar las respuestas del modelo ante diferentes escenarios.
+- El test de stress no es suficiente para garantizar que el modelo funcione correctamente bajo condiciones de alta carga.
+- Es posible hacer deploy del modelo a GCP sin necesidad de usar github actions.
 
 ---
 
