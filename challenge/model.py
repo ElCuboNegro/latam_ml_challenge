@@ -13,6 +13,7 @@ from typing import Union, Tuple
 from sklearn.exceptions import NotFittedError
 from imblearn.over_sampling import SMOTE
 
+
 class DataLoader(ABC):
     @abstractmethod
     def load_data(self, file_path: str) -> pd.DataFrame:
@@ -43,7 +44,6 @@ class DateProcessor:
         morning_max = datetime.strptime("11:59", "%H:%M").time()
         afternoon_min = datetime.strptime("12:00", "%H:%M").time()
         afternoon_max = datetime.strptime("18:59", "%H:%M").time()
-
 
         if morning_min <= date_time <= morning_max:
             return "mañana"
@@ -202,7 +202,7 @@ class DelayModel:
         self.report = None
         self.threshold_in_minutes = 15
         self.top_10_features = [
-            "OPERA_Latin American Wings", 
+            "OPERA_Latin American Wings",
             "MES_7",
             "MES_10",
             "OPERA_Grupo LATAM",
@@ -211,7 +211,7 @@ class DelayModel:
             "MES_4",
             "MES_11",
             "OPERA_Sky Airline",
-            "OPERA_Copa Air"
+            "OPERA_Copa Air",
         ]
         self.data_loader = CSVDataLoader()
         self.feature_processor = FeatureProcessor(self.top_10_features)
@@ -221,7 +221,7 @@ class DelayModel:
     def preprocess(
         self, data: pd.DataFrame, target_column: str = None
     ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
-        if target_column == 'delay': 
+        if target_column == "delay":
             data["Fecha-I"] = pd.to_datetime(data["Fecha-I"])
             data["period_day"] = data["Fecha-I"].apply(
                 self.date_processor.get_period_day
@@ -256,9 +256,19 @@ class DelayModel:
         # Combinar las características y ordenarlas según expected_columns
         features = pd.concat(
             [
-                mes_dummies[[col for col in expected_columns if col in mes_dummies.columns]],
-                opera_dummies[[col for col in expected_columns if col in opera_dummies.columns]],
-                tipo_vuelo_dummies[[col for col in expected_columns if col in tipo_vuelo_dummies.columns]],
+                mes_dummies[
+                    [col for col in expected_columns if col in mes_dummies.columns]
+                ],
+                opera_dummies[
+                    [col for col in expected_columns if col in opera_dummies.columns]
+                ],
+                tipo_vuelo_dummies[
+                    [
+                        col
+                        for col in expected_columns
+                        if col in tipo_vuelo_dummies.columns
+                    ]
+                ],
             ],
             axis=1,
         )
@@ -300,13 +310,11 @@ class DelayModel:
             n_estimators=500,
             subsample=0.5,
             colsample_bytree=0.6,
-            scale_pos_weight=1  # Ya no es necesario ajustar scale_pos_weight
+            scale_pos_weight=1,  # Ya no es necesario ajustar scale_pos_weight
         )
 
         # Entrenar el modelo con los datos balanceados
-        self._model.fit(
-            features_resampled, target_resampled.values.ravel()
-        )
+        self._model.fit(features_resampled, target_resampled.values.ravel())
 
         # Guardar el modelo
         try:
@@ -315,9 +323,7 @@ class DelayModel:
         except Exception as e:
             logging.error(f"Error al guardar el modelo: {e}")
 
-    def get_confusion_matrix(
-        self, X_test: pd.DataFrame, y_test: pd.DataFrame
-    ):
+    def get_confusion_matrix(self, X_test: pd.DataFrame, y_test: pd.DataFrame):
         """
         Obtiene la matriz de confusión del modelo.
 
@@ -354,8 +360,10 @@ class DelayModel:
             predictions = self._model.predict(features)
         except FileNotFoundError:
             # Si no hay modelo guardado, lanzamos una excepción clara
-            raise Exception("El modelo no está entrenado y no se encontró un modelo guardado.")
-        
+            raise Exception(
+                "El modelo no está entrenado y no se encontró un modelo guardado."
+            )
+
         # Convertir el resultado a una lista y retornarlo
         return predictions.tolist()
 
@@ -371,10 +379,9 @@ class DelayModel:
             dict: Reporte de clasificación.
         """
         y_pred = self._model.predict(X_test)
-        self.report = classification_report(
-            y_test, y_pred, output_dict=True
-        )
+        self.report = classification_report(y_test, y_pred, output_dict=True)
         return self.report
+
 
 def calculate_scale_pos_weight(target):
     n_y0 = len(target[target == 0])

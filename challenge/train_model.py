@@ -2,6 +2,7 @@ from model import DelayModel, ModelPersistence, CSVDataLoader
 from sklearn.model_selection import train_test_split
 import logging
 
+
 def main():
     delay_model = DelayModel()
     data_loader = CSVDataLoader()
@@ -24,6 +25,7 @@ def main():
     report = delay_model.get_report(X_val, y_val)
     print("Reporte de clasificación en el conjunto de validación:")
     print(report)
+
 
 if __name__ == "__main__":
     main()
