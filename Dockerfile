@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.2
-FROM python:3.11-slim
+FROM amancevice/pandas:1.3.5-python3.11-slim
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -11,19 +11,19 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /challenge
 
 COPY requirements.txt .
-# Upgrade pip and install NumPy first
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir numpy
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Actualizar pip
+RUN pip install --upgrade pip
+
+# Instalar dependencias restantes
+RUN pip install --no-cache-dir -r requirements.txt
 
 ENV APP_HOME /root
 WORKDIR $APP_HOME
 COPY /challenge $APP_HOME/challenge
 COPY /tests $APP_HOME/tests
 COPY /data $APP_HOME/data
-    
+
 EXPOSE 8000
 
 ENV UVICORN_HOST=0.0.0.0
